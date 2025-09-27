@@ -3,12 +3,13 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { UploadModule } from './upload/upload.module';
 import { ConfigModule } from '@nestjs/config';
+import { PrismaModule } from './prisma/prisma.module';
 
 
 @Module({
   imports: [UploadModule, ConfigModule.forRoot({
       isGlobal: true, // makes .env available everywhere
-    }),],
+    }), PrismaModule,],
   controllers: [AppController],
   providers: [AppService],
 })
