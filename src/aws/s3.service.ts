@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+type UploadResult =
+  | { success: true; url: string }
+  | { success: false; error: string };
 
 @Injectable()
 export class S3Service {
@@ -11,17 +16,19 @@ export class S3Service {
   constructor(private configService: ConfigService) {
     this.region = this.configService.get<string>('AWS_REGION', '');
     this.bucketName = this.configService.get<string>('AWS_BUCKET_NAME', '');
-
     this.s3 = new S3Client({
       region: this.region,
       credentials: {
         accessKeyId: this.configService.get<string>('AWS_ACCESS_KEY_ID', ''),
-        secretAccessKey: this.configService.get<string>('AWS_SECRET_ACCESS_KEY', ''),
+        secretAccessKey: this.configService.get<string>(
+          'AWS_SECRET_ACCESS_KEY',
+          '',
+        ),
       },
     });
   }
 
-  async uploadFile(key: string, body: Buffer, mimetype: string) {
+  async uploadFile(key: string, body: Buffer, mimetype: string): Promise<UploadResult> {
     try {
       const command = new PutObjectCommand({
         Bucket: this.bucketName,
@@ -29,20 +36,26 @@ export class S3Service {
         Body: body,
         ContentType: mimetype,
       });
-
       const result = await this.s3.send(command);
-
       if (result.$metadata.httpStatusCode === 200) {
         return {
           success: true,
           url: `https://${this.bucketName}.s3.${this.region}.amazonaws.com/${key}`,
         };
       }
-
       return { success: false, error: 'Upload failed, unexpected response.' };
     } catch (error) {
       console.error('S3 upload error:', error);
       return { success: false, error: error.message || error };
     }
+  }
+
+  async presignedURL(key: string, mimetype: string): Promise<string> {
+    const command = new PutObjectCommand({
+      Bucket: this.bucketName,
+      Key: key,
+      ContentType: mimetype,
+    });
+    return await getSignedUrl(this.s3, command, { expiresIn: 300 });
   }
 }

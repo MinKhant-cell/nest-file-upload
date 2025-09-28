@@ -3,6 +3,7 @@ import {
   Post,
   UseInterceptors,
   UploadedFile,
+  Body,
 } from '@nestjs/common';
 import { UploadService } from './upload.service';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -41,5 +42,13 @@ export class UploadController {
   )
   uploadFile(@UploadedFile() file: Express.Multer.File) {
     return this.uploadService.uploadFileLocal(file);
+  }
+
+  @Post('presigned-url')
+  async getPresignedUrl(@Body() body: { fileName: string; fileType: string }) {
+    return await this.uploadService.generatePresignedUrl(
+      body.fileName,
+      body.fileType,
+    );
   }
 }
